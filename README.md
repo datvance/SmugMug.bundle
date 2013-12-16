@@ -1,13 +1,15 @@
 SmugMug.bundle
-================
+==============
 
-Plex Channel plug-in for smugmug.com photos and video
+Plex Channel plug-in for smugmug.com photos
 
-* Currently only offers "Today's Most Popular" and "All-Time Most Popular"
+* "Today's Most Popular" and "All-Time Most Popular"
+* Favorites
 
 TODO:
 
+* Videos
+* Galleries
 * Authentication?
 * Categories?
-* Favorites?
 * Search?

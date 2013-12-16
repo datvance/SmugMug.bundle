@@ -1,4 +1,4 @@
-DEBUG = False
+DEBUG = True
 
 PREFIX = "/photos/smugmug"
 NAME = "SmugMug"
@@ -14,8 +14,6 @@ POPULAR_FEEDS = {"today": "Today's Most Popular", "all": "All-Time Most Popular"
 FAVORITE_FEED = "http://%s.smugmug.com/hack/feed.mg?Type=%s&Data=%s&format=rss200"
 FAVORITE_FEEDS = {"nicknameRecentPhotos": "Recent Photos", "recentVideos": "Recent Videos"}
 
-FAVORITE_KEY = "SMUGMUG_FAVORITES"
-#{'familyvance': {}}
 
 ####################################################################################################
 def Start():
@@ -34,10 +32,8 @@ def Start():
     HTTP.CacheTime = CACHE_1HOUR
     HTTP.Headers['User-Agent'] = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/30.0.1599.101 Safari/537.36"
 
-    if FAVORITE_KEY not in Dict:
-        Dict[FAVORITE_KEY] = {}
-    else:
-        log(str(Dict[FAVORITE_KEY]))
+    Dict.Reset()
+
 
 ####################################################################################################
 @handler(PREFIX, NAME)
@@ -48,13 +44,17 @@ def MainMenu():
     for item in POPULAR_FEEDS.keys():
         oc.add(DirectoryObject(key=Callback(ListPhotos, which=item), title=POPULAR_FEEDS[item], thumb=ICON))
 
-    if FAVORITE_KEY in Dict:
-        for nickname in Dict[FAVORITE_KEY]:
+    for i in range(1, 10):
+        nickname = Prefs["favorite-%d" % i]
+        log("nickname %d: %s" % (i, nickname))
+        if nickname is not None:
             title = "Favorite: %s" % nickname
             oc.add(DirectoryObject(key=Callback(GetFavorite, query=nickname), title=title, thumb=ICON))
 
     # on plex/web this just shows up as a search box. sucks
-    oc.add(InputDirectoryObject(key=Callback(GetFavorite), title="Add Favorite", prompt="SmugMug Nickname"))
+    #oc.add(InputDirectoryObject(key=Callback(GetFavorite), title="Add Favorite", prompt="SmugMug Nickname"))
+
+    oc.add(PrefsObject(title="Preferences", summary="Add Favorites", thumb=R("icon-prefs.png")))
 
     return oc
 
@@ -100,16 +100,8 @@ def GetFavorite(query):
 
     if len(oc.objects) < 1:
         return ObjectContainer(header="Error", message="No Photos or Videos Found for %s" % nickname)
-
-    # if not in dict, save it, otherwise give them option to remove it
-    if query not in Dict[FAVORITE_KEY]:
-        Dict[FAVORITE_KEY][query] = {}  # future expansion!
-        Dict.Save()
-        log("Saved favorite: %s" % query)
     else:
-        oc.add(DirectoryObject(key=Callback(RemoveFavorite, nickname=query), title="Remove Favorite"))
-
-    return oc
+        return oc
 
 
 ####################################################################################################
@@ -164,16 +156,6 @@ def CreatePhotoObject(details, container=False):
 @route(PREFIX + '/get-photo')
 def GetPhoto(img):
     return Redirect(img)
-
-
-####################################################################################################
-@route(PREFIX + '/remove-favorite')
-def RemoveFavorite(nickname):
-    if nickname in Dict[FAVORITE_KEY]:
-        Dict[FAVORITE_KEY][nickname] = None
-        del Dict[FAVORITE_KEY][nickname]
-
-    return ObjectContainer(header="Success", message="The %s Favorite has been removed." % nickname)
 
 
 ####################################################################################################

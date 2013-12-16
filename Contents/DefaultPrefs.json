@@ -1,0 +1,62 @@
+[
+    {
+        "id": "favorite-1",
+        "type": "text",
+        "label": "Favorite 1",
+        "default": ""
+    },
+    {
+        "id": "favorite-2",
+        "type": "text",
+        "label": "Favorite 2",
+        "default": ""
+    },
+    {
+        "id": "favorite-3",
+        "type": "text",
+        "label": "Favorite 3",
+        "default": ""
+    },
+    {
+        "id": "favorite-4",
+        "type": "text",
+        "label": "Favorite 4",
+        "default": ""
+    },
+    {
+        "id": "favorite-5",
+        "type": "text",
+        "label": "Favorite 5",
+        "default": ""
+    },
+    {
+        "id": "favorite-6",
+        "type": "text",
+        "label": "Favorite 6",
+        "default": ""
+    },
+    {
+        "id": "favorite-7",
+        "type": "text",
+        "label": "Favorite 7",
+        "default": ""
+    },
+    {
+        "id": "favorite-8",
+        "type": "text",
+        "label": "Favorite 8",
+        "default": ""
+    },
+    {
+        "id": "favorite-9",
+        "type": "text",
+        "label": "Favorite 9",
+        "default": ""
+    },
+    {
+        "id": "favorite-10",
+        "type": "text",
+        "label": "Favorite 10",
+        "default": ""
+    }
+]
