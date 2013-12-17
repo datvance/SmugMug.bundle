@@ -1,3 +1,5 @@
+from urlparse import urlparse
+
 DEBUG = True
 
 PREFIX = "/photos/smugmug"
@@ -12,7 +14,9 @@ POPULAR_FEED = "http://www.smugmug.com/hack/feed.mg?Type=popular&Data=%s&format=
 POPULAR_FEEDS = {"today": "Today's Most Popular", "all": "All-Time Most Popular"}
 
 FAVORITE_FEED = "http://%s.smugmug.com/hack/feed.mg?Type=%s&Data=%s&format=rss200"
-FAVORITE_FEEDS = {"nicknameRecentPhotos": "Recent Photos", "recentVideos": "Recent Videos"}
+FAVORITE_FEEDS = {"nicknameRecentPhotos": "Recent Photos",
+                  "recentVideos": "Recent Videos",
+                  "nickname": "Galleries"}
 
 
 ####################################################################################################
@@ -51,9 +55,6 @@ def MainMenu():
             title = "Favorite: %s" % nickname
             oc.add(DirectoryObject(key=Callback(GetFavorite, query=nickname), title=title, thumb=ICON))
 
-    # on plex/web this just shows up as a search box. sucks
-    #oc.add(InputDirectoryObject(key=Callback(GetFavorite), title="Add Favorite", prompt="SmugMug Nickname"))
-
     oc.add(PrefsObject(title="Preferences", summary="Add Favorites", thumb=R("icon-prefs.png")))
 
     return oc
@@ -63,17 +64,29 @@ def MainMenu():
 @route(PREFIX + '/list-photos')
 def ListPhotos(which):
 
-    oc = ObjectContainer(view_group="InfoList", title1=which)
-
     if which in POPULAR_FEEDS:
         url = POPULAR_FEED % which
+
+    elif which.startswith("http"):
+        # a gallery
+        uri = which.replace("http://", "")
+        nickname = uri.split(".")[0]
+        gid = uri.split("/")[-1]
+        url = FAVORITE_FEED % (nickname, "gallery", gid)
+
     else:
+        # recent photos from a favorite
         url = FAVORITE_FEED % (which, "nicknameRecentPhotos", which)
 
     feed = XML.ElementFromURL(url)
+
+    title = feed.xpath("//rss/channel/title")[0].text
+
+    oc = ObjectContainer(view_group="InfoList", title1=title)
+
     for item in feed.xpath("//rss/channel//item"):
 
-        details = GetItemDetails(item)
+        details = GetPhotoDetails(item)
         if details is not False:
             oc.add(CreatePhotoObject(details))
 
@@ -81,20 +94,49 @@ def ListPhotos(which):
 
 
 ####################################################################################################
-# query can be either a search from "add favorite" or a nickname from favorites list
+@route(PREFIX + '/list-galleries')
+def ListGalleries(nickname):
+
+    url = FAVORITE_FEED % (nickname, "nickname", nickname)
+
+    feed = XML.ElementFromURL(url)
+    title = feed.xpath("//rss/channel/title")[0].text
+    oc = ObjectContainer(view_group="InfoList", title1=title)
+
+    for item in feed.xpath("//rss/channel//item"):
+
+        details = GetGalleryDetails(item)
+        if details is not False:
+            oc.add(DirectoryObject(key=Callback(ListPhotos, which=details["link"]),
+                                   title=details["title"], thumb=details["thumb"]))
+
+    return oc
+
+
+####################################################################################################
+# query should be a SmugMug nickname, e.g. nickname.smugmug.com
 @route(PREFIX + '/get-favorite')
 def GetFavorite(query):
 
-    oc = ObjectContainer(view_group="InfoList", title1=query)
+    oc = ObjectContainer(view_group="InfoList", title1="Favorite: " + query)
 
     for feed in FAVORITE_FEEDS:
         try:
             url = FAVORITE_FEED % (query, feed, query)
-            item = XML.ElementFromURL(url).xpath("//rss/channel//item")[0]
-            details = GetItemDetails(item)
             title = "%s For %s" % (FAVORITE_FEEDS[feed], query)
-            oc.add(DirectoryObject(key=Callback(ListPhotos, which=query),
-                               title=title, thumb=details["thumb"]))
+            log("Retrieving " + title)
+            item = XML.ElementFromURL(url).xpath("//rss/channel//item")[0]
+
+            if feed == "nicknameRecentPhotos":
+                details = GetPhotoDetails(item)
+                if details is not False:
+                    oc.add(DirectoryObject(key=Callback(ListPhotos, which=query),
+                                           title=title, thumb=details["thumb"]))
+            elif feed == "nickname":
+                details = GetGalleryDetails(item)
+                if details is not False:
+                    oc.add(DirectoryObject(key=Callback(ListGalleries, nickname=query),
+                                           title=title, thumb=details["thumb"]))
         except:
             continue
 
@@ -105,8 +147,8 @@ def GetFavorite(query):
 
 
 ####################################################################################################
-@route(PREFIX + '/get-item-details')
-def GetItemDetails(item):
+@route(PREFIX + '/get-photo-details')
+def GetPhotoDetails(item):
 
     try:
         details = {}
@@ -122,6 +164,33 @@ def GetItemDetails(item):
 
         details["img"] = item.xpath(".//media:content/@url", namespaces=NAMESPACES)[-1]
 
+        return details
+
+    except:
+        return False
+
+
+####################################################################################################
+@route(PREFIX + '/get-gallery-details')
+def GetGalleryDetails(item):
+
+    try:
+        details = {}
+
+        details["title"] = item.xpath("./title")[0].text
+
+        details["link"] = item.xpath("./link")[0].text
+
+        description = item.xpath("./description")[0].text.replace('&gt;', '>').replace('&lt', '<')
+        details["thumb"] = HTML.ElementFromString(description).xpath("//img/@src")[0]
+
+        details["summary"] = String.StripTags(description)
+
+        date = item.xpath("./pubDate")[0].text
+        details["date"]= Datetime.ParseDate(date)
+
+        details["category"] = item.xpath("./category")[0].text
+        log(str(details))
         return details
 
     except:
