@@ -1,6 +1,4 @@
-from urlparse import urlparse
-
-DEBUG = True
+DEBUG = False
 
 PREFIX = "/photos/smugmug"
 NAME = "SmugMug"
@@ -69,11 +67,9 @@ def ListPhotos(which):
 
     elif which.startswith("http"):
         # a gallery
-        uri = which.replace("http://", "")
-        nickname = uri.split(".")[0]
-        gid = uri.split("/")[-1]
-        url = FAVORITE_FEED % (nickname, "gallery", gid)
-
+        src = HTML.ElementFromURL(which)
+        rss = src.xpath("//link[@type='application/rss+xml']/@href")[0]
+        url = "http://www.smugmug.com" + rss
     else:
         # recent photos from a favorite
         url = FAVORITE_FEED % (which, "nicknameRecentPhotos", which)
@@ -86,7 +82,7 @@ def ListPhotos(which):
 
     for item in feed.xpath("//rss/channel//item"):
 
-        details = GetPhotoDetails(item)
+        details = GetItemDetails(item)
         if details is not False:
             oc.add(CreatePhotoObject(details))
 
@@ -105,7 +101,7 @@ def ListGalleries(nickname):
 
     for item in feed.xpath("//rss/channel//item"):
 
-        details = GetGalleryDetails(item)
+        details = GetItemDetails(item)
         if details is not False:
             oc.add(DirectoryObject(key=Callback(ListPhotos, which=details["link"]),
                                    title=details["title"], thumb=details["thumb"]))
@@ -127,16 +123,16 @@ def GetFavorite(query):
             log("Retrieving " + title)
             item = XML.ElementFromURL(url).xpath("//rss/channel//item")[0]
 
+            details = GetItemDetails(item)
+            if details is False:
+                continue
+
             if feed == "nicknameRecentPhotos":
-                details = GetPhotoDetails(item)
-                if details is not False:
-                    oc.add(DirectoryObject(key=Callback(ListPhotos, which=query),
-                                           title=title, thumb=details["thumb"]))
+                oc.add(DirectoryObject(key=Callback(ListPhotos, which=query),
+                                       title=title, thumb=details["thumb"]))
             elif feed == "nickname":
-                details = GetGalleryDetails(item)
-                if details is not False:
-                    oc.add(DirectoryObject(key=Callback(ListGalleries, nickname=query),
-                                           title=title, thumb=details["thumb"]))
+                oc.add(DirectoryObject(key=Callback(ListGalleries, nickname=query),
+                                       title=title, thumb=details["thumb"]))
         except:
             continue
 
@@ -147,49 +143,38 @@ def GetFavorite(query):
 
 
 ####################################################################################################
-@route(PREFIX + '/get-photo-details')
-def GetPhotoDetails(item):
-
-    try:
-        details = {}
-
-        details["thumb"] = item.xpath("./guid")[0].text
-        details["title"] = item.xpath("./title")[0].text
-
-        summary = item.xpath("./description")[0].text.replace('&gt;', '>').replace('&lt', '<')
-        details["summary"] = String.StripTags(summary.replace("<br />", " - ", 1))
-
-        date = item.xpath("./pubDate")[0].text
-        details["date"]= Datetime.ParseDate(date)
-
-        details["img"] = item.xpath(".//media:content/@url", namespaces=NAMESPACES)[-1]
-
-        return details
-
-    except:
-        return False
-
-
-####################################################################################################
-@route(PREFIX + '/get-gallery-details')
-def GetGalleryDetails(item):
+@route(PREFIX + '/get-item-details')
+def GetItemDetails(item):
 
     try:
         details = {}
 
         details["title"] = item.xpath("./title")[0].text
 
-        details["link"] = item.xpath("./link")[0].text
+        details["guid"] = item.xpath("./guid")[0].text
+
+        details["link"] = item.xpath("./guid")[0].text
 
         description = item.xpath("./description")[0].text.replace('&gt;', '>').replace('&lt', '<')
-        details["thumb"] = HTML.ElementFromString(description).xpath("//img/@src")[0]
-
         details["summary"] = String.StripTags(description)
 
         date = item.xpath("./pubDate")[0].text
         details["date"]= Datetime.ParseDate(date)
 
         details["category"] = item.xpath("./category")[0].text
+
+        try:
+            imgs = item.xpath(".//media:content/@url", namespaces=NAMESPACES)
+            if len(imgs) > 0:
+                details["img"] = imgs[-1]
+                details["thumb"] = details["guid"]
+        except:
+            pass
+
+        if "img" not in details:
+            details["img"] = False
+            details["thumb"] = HTML.ElementFromString(description).xpath("//img/@src")[0]
+
         log(str(details))
         return details
 
