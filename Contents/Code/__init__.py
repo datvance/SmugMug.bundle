@@ -164,6 +164,7 @@ def GetItemDetails(item):
         details["category"] = item.xpath("./category")[0].text
 
         try:
+            # photo
             imgs = item.xpath(".//media:content/@url", namespaces=NAMESPACES)
             if len(imgs) > 0:
                 details["img"] = imgs[-1]
@@ -171,6 +172,7 @@ def GetItemDetails(item):
         except:
             pass
 
+        # gallery
         if "img" not in details:
             details["img"] = False
             details["thumb"] = HTML.ElementFromString(description).xpath("//img/@src")[0]
