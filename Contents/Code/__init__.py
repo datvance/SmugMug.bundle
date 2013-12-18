@@ -137,7 +137,7 @@ def GetFavorite(query):
             continue
 
     if len(oc.objects) < 1:
-        return ObjectContainer(header="Error", message="No Photos or Videos Found for %s" % nickname)
+        return ObjectContainer(header="Error", message="No Photos or Videos Found for %s" % query)
     else:
         return oc
 
